@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Website Klien Ujian</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background-color: #f4f4f9; }
+        .box { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); display: inline-block; }
+        button { padding: 10px 20px; font-size: 16px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
+    </style>
+</head>
+<body>
+
+    <div class="box">
+        <h1>Selamat Datang ke Website Ujian! 🚀</h1>
+        <p>Apabila anda membuka halaman ini, satu data "page_view" telah dihantar ke backend secara senyap.</p>
+        
+        <button onclick="hantarDataKlik()">Klik Saya (Simulasi Add to Cart)</button>
+    </div>
+
+    <script>
+        const API_URL = "http://127.0.0.1:8000/track";
+        const API_KEY = "RAHSIA_123"; // Mesti sama dengan backend
+
+        // Fungsi untuk hantar data ke backend
+        function hantarKeSistemSaaS(jenis_event) {
+            const trackData = {
+                page_url: window.location.href,
+                event_type: jenis_event,
+                referrer: document.referrer || "direct"
+            };
+
+            fetch(API_URL, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "x-api-key": API_KEY
+                },
+                body: JSON.stringify(trackData)
+            })
+            .then(response => response.json())
+            .then(data => console.log("Berjaya dihantar:", data))
+            .catch(error => console.error("Ralat:", error));
+        }
+
+        // 1. Hantar data secara automatik bila website dibuka
+        hantarKeSistemSaaS("page_view");
+
+        // 2. Hantar data bila butang ditekan
+        function hantarDataKlik() {
+            hantarKeSistemSaaS("butang_diklik");
+            alert("Data klik telah dihantar ke Backend SaaS anda!");
+        }
+    </script>
+
+</body>
+</html>

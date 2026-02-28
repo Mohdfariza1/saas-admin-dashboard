@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SaaS Admin Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .container { max-width: 1000px; margin: auto; }
+        
+        /* Gaya untuk kotak info (Cards) */
+        .cards-wrapper { display: flex; gap: 20px; justify-content: center; margin-bottom: 30px; }
+        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); text-align: center; flex: 1; }
+        .card h3 { margin: 0; color: #555; font-size: 16px; }
+        .card p { font-size: 28px; font-weight: bold; color: #007bff; margin: 10px 0 0 0; }
+
+        /* Gaya untuk bahagian carta dan jadual */
+        .section { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 30px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border-bottom: 1px solid #ddd; padding: 12px; text-align: left; font-size: 14px; }
+        th { background-color: #f8f9fa; color: #333; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>📊 Prestasi Website Klien</h1>
+        <p>SaaS Admin Dashboard - Data Langsung (Live Data)</p>
+    </div>
+
+    <div class="cards-wrapper">
+        <div class="card">
+            <h3>Jumlah Pelawat (Page Views)</h3>
+            <p id="totalViews">0</p>
+        </div>
+        <div class="card">
+            <h3>Interaksi (Butang Diklik)</h3>
+            <p id="totalClicks">0</p>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Graf Interaksi</h2>
+        <canvas id="myChart" height="100"></canvas>
+    </div>
+
+    <div class="section">
+        <h2>Log Aktiviti Terkini</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Masa</th>
+                    <th>Halaman (URL)</th>
+                    <th>Jenis Event</th>
+                    <th>Referrer</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                <tr><td colspan="4" style="text-align:center;">Memuat turun data dari server...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // Ini adalah URL backend Python anda
+    const API_URL = "http://127.0.0.1:8000/logs";
+
+    // Fungsi untuk menarik data dari Backend dan paparkan di skrin
+    async function muatTurunData() {
+        try {
+            const response = await fetch(API_URL);
+            const dataLogs = await response.json();
+
+            // 1. Kira jumlah Page Views dan Klik
+            let jumlahViews = 0;
+            let jumlahKlik = 0;
+
+            // 2. Kosongkan jadual lama
+            const tableBody = document.getElementById('tableBody');
+            tableBody.innerHTML = "";
+
+            dataLogs.forEach(log => {
+                // Pengiraan
+                if(log.event === "page_view") jumlahViews++;
+                if(log.event === "butang_diklik") jumlahKlik++;
+
+                // Masukkan data ke dalam jadual
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${new Date(log.timestamp).toLocaleString()}</td>
+                    <td>${log.page.substring(0, 40)}...</td>
+                    <td><strong>${log.event}</strong></td>
+                    <td>${log.referrer}</td>
+                `;
+                tableBody.appendChild(tr);
+            });
+
+            // 3. Kemaskini nombor di Kotak Info (Cards)
+            document.getElementById('totalViews').innerText = jumlahViews;
+            document.getElementById('totalClicks').innerText = jumlahKlik;
+
+            // 4. Lukis Graf menggunakan Chart.js
+            lukisGraf(jumlahViews, jumlahKlik);
+
+        } catch (error) {
+            console.error("Gagal menarik data:", error);
+            document.getElementById('tableBody').innerHTML = "<tr><td colspan='4' style='color:red; text-align:center;'>Gagal sambung ke server. Pastikan backend Python sedang berjalan.</td></tr>";
+        }
+    }
+
+    // Fungsi untuk melukis carta Bar
+    let myChartInstance = null;
+    function lukisGraf(views, clicks) {
+        const ctx = document.getElementById('myChart').getContext('2d');
+        
+        // Buang carta lama jika ada sebelum lukis baru (supaya tak bertindih)
+        if(myChartInstance != null) { myChartInstance.destroy(); }
+
+        myChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Page Views (Pelawat)', 'Butang Diklik (Interaksi)'],
+                datasets: [{
+                    label: 'Jumlah Aktiviti',
+                    data: [views, clicks],
+                    backgroundColor: ['rgba(54, 162, 235, 0.6)', 'rgba(255, 99, 132, 0.6)'],
+                    borderColor: ['rgba(54, 162, 235, 1)', 'rgba(255, 99, 132, 1)'],
+                    borderWidth: 1
+                }]
+            },
+            options: { scales: { y: { beginAtZero: true } } }
+        });
+    }
+
+    // Jalankan fungsi sebaik sahaja dashboard dibuka
+    muatTurunData();
+</script>
+
+</body>
+</html>
