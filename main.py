@@ -3,11 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
-import sqlite3  # Kita bawa masuk fungsi database SQLite
+import sqlite3
 
 app = FastAPI()
 
-# Benarkan Dashboard (Frontend) akses API kita
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], 
@@ -16,18 +15,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 1. Tambah visitor_id dalam model penerimaan data
 class ClickData(BaseModel):
     page_url: str
     event_type: str
     referrer: Optional[str] = None
+    visitor_id: str = "Tidak Diketahui" 
 
-# --- BAHAGIAN SETUP DATABASE SQLITE ---
 def init_db():
-    # Ini akan mencipta fail 'saas_database.db' secara automatik
     conn = sqlite3.connect("saas_database.db")
     cursor = conn.cursor()
     
-    # Buat jadual (table) jika ia belum ada
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS web_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -38,45 +36,47 @@ def init_db():
             referrer TEXT
         )
     ''')
+    
+    # 2. Arahkan database cipta lajur baharu (visitor_id) jika ia belum ada
+    try:
+        cursor.execute('ALTER TABLE web_logs ADD COLUMN visitor_id TEXT')
+    except:
+        pass # Abaikan jika lajur ini sudah wujud
+        
     conn.commit()
     conn.close()
 
-# Jalankan fungsi setup database sebaik sahaja server dihidupkan
 init_db()
-# ------------------------------------
 
 @app.post("/track")
 async def track_event(data: ClickData, x_api_key: str = Header(None)):
-    # Semak API Key
     if not x_api_key or x_api_key != "RAHSIA_123":
         raise HTTPException(status_code=403, detail="API Key tidak sah")
 
     masa_sekarang = datetime.now().isoformat()
 
-    # Simpan data yang masuk ke dalam database
     conn = sqlite3.connect("saas_database.db")
     cursor = conn.cursor()
+    # 3. Masukkan visitor_id ke dalam simpanan database
     cursor.execute('''
-        INSERT INTO web_logs (timestamp, api_key, page, event, referrer)
-        VALUES (?, ?, ?, ?, ?)
-    ''', (masa_sekarang, x_api_key, data.page_url, data.event_type, data.referrer))
+        INSERT INTO web_logs (timestamp, api_key, page, event, referrer, visitor_id)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (masa_sekarang, x_api_key, data.page_url, data.event_type, data.referrer, data.visitor_id))
     
     conn.commit()
     conn.close()
     
-    return {"status": "success", "message": "Data berjaya direkodkan ke Database SQLite!"}
+    return {"status": "success"}
 
 @app.get("/")
 async def home():
-    return {"message": "SaaS Admin Dashboard API sedang berjalan dengan Database SQLite!"}
+    return {"message": "SaaS Admin Dashboard API sedang berjalan!"}
 
 @app.get("/logs")
 async def get_logs(x_admin_password: str = Header(None)):
-    # 1. Semak jika kata laluan salah atau tidak dimasukkan
     if not x_admin_password or x_admin_password != "ADMIN123":
         raise HTTPException(status_code=401, detail="Akses Ditolak. Kata laluan salah.")
 
-    # 2. Jika betul, baru kita berikan data dari database
     conn = sqlite3.connect("saas_database.db")
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -93,7 +93,9 @@ async def get_logs(x_admin_password: str = Header(None)):
             "api_key": row["api_key"],
             "page": row["page"],
             "event": row["event"],
-            "referrer": row["referrer"]
+            "referrer": row["referrer"],
+            # 4. Hantar visitor_id ke Dashboard (Jika data lama, letak label "Data Lama")
+            "visitor_id": row["visitor_id"] if "visitor_id" in row.keys() else "Data Lama"
         })
         
     return senarai_log
