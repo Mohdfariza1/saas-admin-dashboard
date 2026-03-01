@@ -71,18 +71,20 @@ async def home():
     return {"message": "SaaS Admin Dashboard API sedang berjalan dengan Database SQLite!"}
 
 @app.get("/logs")
-async def get_logs():
-    # Baca semua data dari database untuk dihantar ke Dashboard
+async def get_logs(x_admin_password: str = Header(None)):
+    # 1. Semak jika kata laluan salah atau tidak dimasukkan
+    if not x_admin_password or x_admin_password != "ADMIN123":
+        raise HTTPException(status_code=401, detail="Akses Ditolak. Kata laluan salah.")
+
+    # 2. Jika betul, baru kita berikan data dari database
     conn = sqlite3.connect("saas_database.db")
-    conn.row_factory = sqlite3.Row # Supaya data mudah ditukar jadi JSON format
+    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
-    # Ambil data susun dari yang paling baru
     cursor.execute("SELECT * FROM web_logs ORDER BY id DESC")
     rows = cursor.fetchall()
     conn.close()
 
-    # Tukar format data supaya Dashboard HTML kita faham
     senarai_log = []
     for row in rows:
         senarai_log.append({
